@@ -21,9 +21,9 @@
 
 ## Innodb
 
-- **索引**
+- **索引**：B+树
 
-  > B+树：<img src="./imgs/索引组织表.png" style="zoom:20%;" />
+  <img src="./imgs/索引组织表.png" style="zoom:20%;" />
 
 - **特性**
 
@@ -37,42 +37,42 @@
 
 ## DQL
 
-- **查询缓存**：**不建议使用**：因为更新操作会使查询缓存失效。
-
-  - 8.0 之前由字段 `query_cache_type` 控制：
-    -  `DEMAND`：**默认**，不使用查询缓存
+- **查询缓存**：**不建议使用**，因为更新操作会使查询缓存失效。
+- 8.0 之前由字段 `query_cache_type` 控制：
+    -  `DEMAND`：**默认**，不使用查询缓存。
     - `SQL_CACHE` 使用查询缓存。
-
-  - 在8.0之后没有了。
+  
+- 在8.0之后没有了。
 
 ### count
 
-> **效率排名**： count(字段) < count(id) < count(1) ≈ count(*)
+**效率排名**： count(字段) < count(id) < count(1) ≈ count(*)
 
 - **count(*)**：表示满足条件的结果集的总行数。
-- myisam：在磁盘上存储了总行数，查询时，直接从磁盘获取。
+  - myisam：在磁盘上存储了总行数，查询时，直接从磁盘获取。
   - innodb：
-  - innode层不取值。
+    - innode层不取值。
     - server层直接累加。
-  - 用最小索引树统计。
+    - 用最小索引树统计。
+
 - **count(主键 id)**：表示满足条件的结果集的总行数。
   - 存储引擎层取id值。
-    - server层直接累加。
-    - 用最小索引树统计。
+  - server层直接累加。
+  - 用最小索引树统计。
 - **count(1)**：表示满足条件的结果集的总行数。
   - innode层不取值，放入数组1。
-    - server层直接累加。
-    - 用最小索引树统计。
+  - server层直接累加。
+  - 用最小索引树统计。
 - **count(字段)**：表示满足条件的数据行里面，参数「字段」不为null的总个数。
   - innode层取字段值。
-    - server层需要判断累加。
-    - 用字段索引树统计。
+  - server层需要判断累加。
+  - 用字段索引树统计。
 
 #### 计数优化
 
 - 用缓存系统保存计数
 
-  > 缺点：更新丢失，逻辑不一致
+  > 缺点：更新丢失，逻辑不一致。
 
 - 在数据库保存计数
 
@@ -115,12 +115,11 @@
     6. 再根据id到主键索引取出数据返回
   
 - **city, name**
-
   1. 在city索引树上查找到第一个满足条件'city=˙杭州'的记录，取出id。
   2. 在主键索引树上获取id所在行，取出 name,age,city ，作为结果集返回。
   3. 从索引树上取下一个主键id。
   4. 重复步骤2，3步骤直到不满足条件'city=杭州'。
-
+  
 - **city, name, age**
 
   1. 在city索引树上查找到第一个满足条件'city=˙杭州'的记录，取出 name,age,city ,作为结果集返回。
@@ -279,31 +278,28 @@
     >    - 冷表的数据量小于整个 Buffer Pool 的 3/8，如果语句执行时间超过 1 秒，就会在再次扫描冷表的时候，把冷表的数据页移到 LRU 链表头部。
     >    - 如果这个冷表很大，业务正常访问的数据页，没有机会进入 young 区域。
   
-- **BKA**
+- **BKA：Batched Key Access**、BKA算法是对NLJ算法的优化。被驱动表上有索引。
 
-  > Batched Key Access；BKA算法是对NLJ算法的优化。
-  >
-  > <img src="./imgs/bka.png" style="zoom:50%;" />
-  >
-  > ```shell
-  > set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on';
-  > ```
-  >
-  > > 开启BKA算法
+  <img src="./imgs/bka.png" style="zoom:50%;" />
+  
+  ```SHELL
+  # 开启BKA算法
+  set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on';
+  ```
 
 #### join优化
 
 - **BNL转BKA**
 
   > 1. 把表t2中满足条件的数据放在临时表tmp_t中。
-  > 2. 为了让join使用BKA算法，给临时表tmp_t的字段b加上索引。
+  > 2. 为了让join使用BKA算法，给临时表tmp_t的join字段加上索引。
   > 3. 让表t1和tmp_t做join操作
 
 - **hash_join**：join_buffer是无序的，如果支持hash，可以加快查询，mysql不支持，可以在业务端自己实现。
 
 ### group by
 
-> 当内存表的容量不足以排序时，会转为磁盘临时表。
+当内存表的容量不足以排序时，会转为磁盘临时表。
 
 - **需要排序**
 
@@ -380,11 +376,15 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
   - *修改机制*
 
     ```shell
-    auto_increment_offset：自增初始值，默认1；
-    auto_increment_increment：步长，默认1。
+    # 自增初始值，默认1
+    auto_increment_offset
+    
+    # 步长，默认1
+    auto_increment_increment
     ```
-
-    > id被定义为AUTO_INCREMENT，插入语句时：
+  
+    id被定义为AUTO_INCREMENT，插入语句时：
+  
     > - id为0或null：新增语句使用当前的自增值，自增值按步长增加。
     > - 指定id时。新增语句使用指定的id。
     >     - 指定id < 自增值：自增值不变。
@@ -395,18 +395,18 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
     1. **唯一键冲突**
 
     2. **事务回滚**
-
+  
     3. **insert ... select语句申请id的策略导致不连续。**
-
+  
        > 1. 语句执行过程中，第一次申请自增 id，会分配 1 个；
        > 2. 1 个用完以后，这个语句第二次申请自增 id，会分配 2 个；
        > 3. 2 个用完以后，还是这个语句，第三次申请自增 id，会分配 4 个；
        > 4. 依此类推，同一个语句去申请自增 id，每次申请到的自增 id 个数都是上一次的两倍。
 
   - *自增锁*：非事务锁，一般为申请完成立马释放。
-
+  
     - **加锁规则**
-
+  
       > 由参数innodb_autoinc_lock_mode控制
       >
       > - 0：语句执行结束后才释放锁。【类5.0版本】
@@ -426,7 +426,7 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
     ```
     
     > 1. 创建临时表，表里有两个字段 c 和 d 。
-    >2. 按照索引C扫描表t，依次取出c= 4,3,2,1，然后回表，读到 c 和 d 的值写入临时表。这时，Rows_examined=4。
+    >2. 按照索引 c 扫描表 t，依次取出 c = 4,3,2,1，然后回表，读到 c 和 d 的值写入临时表。这时，Rows_examined=4。
     > 3. 由于语义里面有 limit 1，所以只取了临时表的第一行，再插入到表 t 中。这时，Rows_examined 的值加 1，变成了 5。
 
 - **insert into … on duplicate key update**
@@ -451,19 +451,18 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
 
 - **重建表**
 
-  > 1. 非online【重建时不能更新数据】：`alter table tablename engine=innodb,ALGORITHM=copy;`
-  > 2. online：`alter table tablename engine=innodb,ALGORITHM=inplace;`
-  > 3. `optimize table t`
-  > 4. alter table会默认提交前面的事务。
+  > 1. 非online【重建时不能更新数据】：`alter table tablename engine=innodb,ALGORITHM=copy;`。
+  > 2. online：`alter table tablename engine=innodb,ALGORITHM=inplace;`。
+  > 3. `optimize table t`。
   > 5. 重新收缩的过程中，页会按15/16满的比例来重新整理页数据。
-
-  - *inplace*
-
-    > inplace 是指，表的操作是放在引擎层，而不是server层。
-
-  - *online*
-
-    > online 指表重建时，可以支持增删改操作。
+  
+- *inplace*
+  
+  > inplace 是指，表的操作是放在引擎层，而不是server层。
+  
+- *online*
+  
+  > online 指表重建时，可以支持增删改操作。
 
 ### update
 
@@ -568,11 +567,8 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
 - **用不到分区依据时**
 
   - *方案一*：在 proxy 层的进程代码中实现排序等。
-
-  - *方案二*：<img src="./imgs/非分表依据.png" alt="image-20220311175520366" style="zoom:33%;" />
-
-    > - 各个分库拿到的数据，汇总到一个 MySQL 实例的一个表中。
-  >- 直接把临时表放到分库中的某一个上。
+  - *方案二*：<img src="./imgs/非分表依据.png" alt="image-20220311175520366" style="zoom:66%;" />
+  - 各个分库拿到的数据，汇总到一个 MySQL 实例的一个表中。
 
 ## 数据拷贝
 
@@ -632,9 +628,9 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
 > 6. 执行 alter table r import tablespace，将这个 r.ibd 文件作为表 r 的新的表空间，由于这个文件的数据内容和 t.ibd 是相同的，所以表 r 中就有了和表 t 相同的数据。
 
 - **注意点**
-
-  > 1. 在第 3 步执行完 flsuh table 命令之后，db1.t 整个表处于只读状态，直到执行 unlock tables 命令后才释放读锁；
-  > 2. 在执行 import tablespace 的时候，为了让文件里的表空间 id 和数据字典中的一致，会修改 **r.ibd 的表空间 id**。而这个表空间 id 存在于每一个数据页中。因此，如果是一个很大的文件【比如 TB 级别】，每个数据页都需要修改，所以你会看到这个 import 语句的执行是需要一些时间的。当然，如果是相比于逻辑导入的方法，import 语句的耗时是非常短的。
+  - 在第 3 步执行完 flsuh table 命令之后，db1.t 整个表处于只读状态，直到执行 unlock tables 命令后才释放读锁；
+  - 在执行 import tablespace 的时候，为了让文件里的表空间 id 和数据字典中的一致，会修改 **r.ibd 的表空间 id**。而这个表空间 id 存在于每一个数据页中。因此，如果是一个很大的文件【比如 TB 级别】，每个数据页都需要修改，所以你会看到这个 import 语句的执行是需要一些时间的。当然，如果是相比于逻辑导入的方法，import 语句的耗时是非常短的。
+  
 
 # 权限
 
@@ -736,7 +732,7 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
 
    <img src="./imgs/搜索树.png" alt="image-20220311192842460" style="zoom:33%;" />
   
-  - **适用场景**：访问磁盘少，性能高，广泛应用于大多数数据库路
+  - **适用场景**：访问磁盘少，性能高，广泛应用于大多数数据库里。
   
   - 大部分索引不使用二叉树的原因：磁盘数据页。n叉树适配磁盘访问模式。
 
@@ -854,19 +850,24 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
    1. Index Nested-Loop Join算法，应该选择小表做驱动表。
    2. 如果是 Block Nested-Loop Join 算法：在 join_buffer_size 足够大的时候，是一样的；在 join_buffer_size 不够大的时候（这种情况更常见），应该选择小表做驱动表。
 
-### 适合不用自增主键的场景
-
-> 唯一就可以等值查询，查找的过程中不用向后遍历，因为遍历的话，每页存的主键又少了，可能需要查多个页。
-
-- **数据库只有1个索引**。
-
-- **索引必须是唯一索引**。
-
 ## 索引重建
+- **触发时机**：重建表。
+
 - **普通索引**：先删后加，影响不大。
 
-- **主键索引**：删除后，mysql会自动生成一个rowid为主键的索引，新增的时候再替换，相当于涉及到两次索引重建，效率不高。
-  - 替代方案：`alter table T engine=InnoDB`。
+- **重建方案**
+
+  - 不建议：
+
+    ```sql
+    alter table T drop primary key;
+    alter table T add primary key(id);
+    ```
+
+    > 删除后，mysql会自动生成一个rowid为主键的索引，新增的时候再替换，相当于涉及到两次索引重建，效率不高。
+
+  - 建议：`alter table T engine=InnoDB`。
+
 
 ## 索引|数据操作
 
@@ -908,7 +909,7 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
 > - **页分裂**：当一个数据页已满，插入新的数据时，需要申请新的数据页，这时需要挪动数据到新的数据页，此过程称为页分裂。
 >   - **影响**：页的利用率降低，性能降低。
 >
-> - **页合并**：当相邻两个页由于删除，利用率很低，会将数据页做合并。此过程称为页分裂。也称为**页分裂的逆过程**。
+> - **页合并**：当相邻两个页由于删除，利用率很低，会将数据页做合并。此过程称为页合并。也称为**页分裂的逆过程**。
 >
 > - **回表**：回到主键索引树搜索的过程，称为回表。
 
@@ -939,7 +940,7 @@ insert into tablename (cloumn1,cloumn2) select (cloumn1,cloumn2) from table2 whe
    - 修改普通字段：修改主键索引。
    
 ## 索引基数
-> `show index`的`cardinality`字段
+> `show index` 的 `cardinality` 字段。表示数据列包含的不同值的数量。
 
 - **索引基数统计信息参数**
   
@@ -977,8 +978,8 @@ select * from information_schema.innodb_trx;
   - 数据版本可见情况
 
     > 1. 版本未提交，不可见。
-  > 2. 版本已经提交，但是是在视图创建后提交的，不可见。
-    > 3. 版本已经提交，但是是在视图创建之前提交的，可见。
+    > 1. 版本已经提交，但是是在视图创建后提交的，不可见。
+    > 1. 版本已经提交，但是是在视图创建之前提交的，可见。
 
 - **可重复读**：**repeatable-read**，一个事务执行过程中看到的数据，总是跟这个事务在启动时看到的数据是一致的。
 
@@ -990,7 +991,7 @@ select * from information_schema.innodb_trx;
 
   - 数据版本可见情况
 
-    > 一个事务的启动瞬间，一个数据版本的 row trx_id，有以下几种可能：
+    > InnoDB 为每个事务构造了一个数组，用来保存这个事务启动瞬间，当前正在“活跃”的所有事务 ID。“活跃”指的就是，启动了但还没提交。一个数据版本的 row trx_id，有以下几种可能：
     >
     > 1. 如果落在低水位之下，表示这个版本是已提交的事务或者是当前事务自己生成的，这个数据是可见的；
     > 2. 如果落在高水位之上，表示这个版本是由将来启动的事务生成的，是肯定不可见的；
@@ -1039,7 +1040,7 @@ select * from information_schema.innodb_trx;
 
     ```sql
     -- 在执行第一条语句时开启事务。
-    begin/start transaction;
+    {begin|start} transaction;
     
     -- 立即开启事务。
     start transaction with consistent snapshot;
@@ -1049,15 +1050,17 @@ select * from information_schema.innodb_trx;
 - **提交**
 
   - *没有显式地使用begin*：由参数autocommit控制
-    
-      - autocommit = 1 时：**默认**，当没有显式使用begin/commit时，表示这个语句本身就是一个事务，语句完成的时候会自动提交。
-        
-      - autocommit = 0 时：将线程的自动提交关掉，执行任何一条语句时，事务就启动了。必需主动执行 commit 或 rollback。
+    - autocommit = 1 时：**默认**，当没有显式使用begin/commit时，表示这个语句本身就是一个事务，语句完成的时候会自动提交。
       
+      - autocommit = 0 时：将线程的自动提交关掉，执行任何一条语句时，事务就启动了。必需主动执行 commit 或 rollback。
+    
   - *显式使用*：`commit` 时提交，`rollback` 时回滚。
 
-## MVCC 
-用于支持读提交【RC】和可重复读【RR】隔离级别的实现。每行数据都有多个版本，历史版本的恢复有当前版本和undolog获取。
+## MVCC 【Multi-Version Concurrency Control 多版本并发控制】
+
+是为了在读取数据时不加锁来提高读取效率和并发性的一种手段。
+
+用于支持读提交【RC】和可重复读【RR】隔离级别的实现。每行数据都有多个版本，历史版本的恢复由当前版本和undolog获取。
 
 ## 一致性视图「read-view」
 
@@ -1077,7 +1080,7 @@ select * from information_schema.innodb_trx;
 ## purge线程
 
 - 数据删除是标记删除，由purge线程来决定什么时候真正删除。主键相同例外。
-- purge线程会清理 undo log page，默认300.
+- purge线程会清理 undo log page，默认300。
 
 # 锁
 
@@ -1121,7 +1124,7 @@ select * from information_schema.innodb_trx;
 - **加锁**
 
   ```sql
-  lock tables ... read/write
+  lock tables ... {read|write}
   ```
 
 - **释放锁**
@@ -1138,7 +1141,7 @@ select * from information_schema.innodb_trx;
 
   - *写锁*：其他线程的读写会被阻塞；本线程可读写。
 
-### 元数据锁
+### 元数据锁【MDL】
 
 > **metadata lock**，保证读写的正确性。
 
@@ -1162,7 +1165,7 @@ select * from information_schema.innodb_trx;
 
 - **问题：从库做全量备份时，主库DDL会发生什么？**
 
-  > 1. 数据库没有生成建表语句前到达，没有影响。同步的数据是表结构修改后的。
+  > 1. 在数据库没有生成建表语句前到达，没有影响。同步的数据是表结构修改后的。
   > 2. 生成建表语句，还没开始查询，进行查询时，会发生备份报错终止。
   > 3. 进行查询时到达，同步阻塞。同步的数据是表结构修改前的。
   > 4. 核心，在全量备份时，元数据锁是在一张表备份完成后主动释放的。
@@ -1187,7 +1190,7 @@ select * from information_schema.innodb_trx;
     - **主动加**
 
       ```sql
-    lock in share mode
+      lock in share mode
       ```
     
   - *写锁【排它锁】*
@@ -1197,7 +1200,7 @@ select * from information_schema.innodb_trx;
     - **主动加**
 
       ```sql
-    for update
+      for update
       ```
 
 - **解锁**：事务提交后释放锁。
@@ -1286,43 +1289,40 @@ mysqlbinlog master.000001  --start-position=2738 --stop-position=2973 | mysql -h
   - thread_id：线程id。
   - Xid：两阶段提交，恢复数据时，验证 redo log 有效性。
 - **日志录入格式**：由参数binlog_format控制。
-- *statement*：记录sql语句的原文。
-  - **含义**：
-    
-  - **优点**：不需要记录每一行的变化，减少了binlog的日志量，占用空间小，节约IO。
-    
-  - **缺点**
-    
-    - 主从情况下可能会造成数据不一致。【limit操作时可能主从使用不用的索引。】
-      - 不能用于数据恢复。
-    
-  - **特有字段**：SET INSERT_ID=XX：线程需要用到自增值的时候，固定用XX。
-  
-- *row*：记录每行数据的变化过程参数。
-    - **binlog_row_image**：控制要记录的字段：
-    - FULL(默认)：所有字段
-      - MINIMAL：必要字段
-    
-    - **优点**
-  
-      - 可以用于数据恢复、备份。
-    - 避免主从（备）数据不一致。
-        - mysql复制。
-      - 自增锁申请完立马释放时。 
-    
-    - **缺点**：记录的日志量大，耗费IO资源，影响执行速度，当update修改多条记录。
-    
-- *mixed*
-  
-  - **含义**：mysql自己判断sql否可能引起主备不一致，如果有可能，就用 row 格式，否则就用 statement 格式。
-  
-  - **优点**：避免语句歧义，节省IO。
-  
-  - **缺点**：无法恢复数据。
+    - *statement*：
+        - **含义**：记录sql语句的原文。
+
+        - **优点**：不需要记录每一行的变化，减少了binlog的日志量，占用空间小，节约IO。
+
+        - **缺点**
+        - 主从情况下可能会造成数据不一致。【limit操作时可能主从使用不用的索引。】
+          - 不能用于数据恢复。
+        - **特有字段**：SET INSERT_ID=XX：线程需要用到自增值的时候，固定用XX。
+
+    - *row*：记录每行数据的变化过程参数。
+        - **binlog_row_image**：控制要记录的字段：
+            - FULL(默认)：所有字段
+            - MINIMAL：必要字段
+
+        - **优点**
+            - 可以用于数据恢复、备份。
+            - 避免主从（备）数据不一致。
+                - mysql复制。
+                - 自增锁申请完立马释放时。 
+
+        - **缺点**：记录的日志量大，耗费IO资源，影响执行速度，当update修改多条记录。
+
+    - *mixed*
+        - **含义**：mysql自己判断sql否可能引起主备不一致，如果有可能，就用 row 格式，否则就用 statement 格式。
+
+        - **优点**：避免语句歧义，节省IO。
+
+        - **缺点**：无法恢复数据。
+
 
 ## redo log
 
-记录 普通数据页 和 change buffer 的改动。
+记录 **普通数据页** 和 change buffer 的改动。
 
 - **作用**
 
@@ -1331,9 +1331,9 @@ mysqlbinlog master.000001  --start-position=2738 --stop-position=2973 | mysql -h
 
 - **容量**
 
-  - 总文件数由参数innodb_log_files_in_group控制。一般为4个文件。
+  - 总文件数由参数 innodb_log_files_in_group 控制。一般为4个文件。
   
-  - 单文件大小由参数innodb_log_file_size控制。一般一个文件大小为1G。
+  - 单文件大小由参数 innodb_log_file_size 控制。一般一个文件大小为1G。
 
 - **特点**
 
@@ -1356,7 +1356,9 @@ mysqlbinlog master.000001  --start-position=2738 --stop-position=2973 | mysql -h
 
 ### 两阶段提交
 
- <img src="./imgs/两阶段提交.png" alt="两阶段提交" style="zoom:33%;" />
+- **简略图**
+
+  <img src="./imgs/两阶段提交.png" alt="两阶段提交" style="zoom:33%;" />
 
 - **两阶段提交细化**
 
@@ -1464,9 +1466,9 @@ show engine innodb status;
 
   - 已载入：判断数据页在链表的什么区域。
       - young区域：将数据页提到链表的开头。
-          - old区域：判断数据页在链表中是否超过X秒。【 X 由参数 innodb_old_blocks_time 控制，默认为 1000 毫秒】
-              - 超过：将数据页提到链表的开头。
-              - 不超过：保持数据页位置不变。
+      - old区域：判断数据页在链表中是否超过X秒。【 X 由参数 innodb_old_blocks_time 控制，默认为 1000 毫秒】
+          - 超过：将数据页提到链表的开头。
+          - 不超过：保持数据页位置不变。
 
 - 链表尾部的数据会被淘汰。
 
@@ -1518,7 +1520,7 @@ show engine innodb status;
 - **作用**
 
   - 用来存储redo log。
-  - 事务在执行过程中，生成的「redo log」先写到「redo log buffer」的。
+  - 事务在执行过程中，生成的「redo log」先写到「redo log buffer」。
 
 - **容量**：由参数innodb_log_buffer_size控制。
 
@@ -1561,7 +1563,7 @@ show engine innodb status;
 - **时机**
 
   - 由参数sync_binlog控制
-  - 0：每次提交事务都只 write，不 fsync；
+    - 0：每次提交事务都只 write，不 fsync；
     - 1：每次提交事务都会执行 fsync；
     - N：每次提交事务都write，但累积 N 个事务后才fsync。
   - 事务提交时：执行器把binlog cache里的完整事务写入到binlog中，并清空binlog cache。
@@ -1618,7 +1620,7 @@ show engine innodb status;
 
 ## sort buffer 有序数组
 
-- **作用**：用于辅助排序
+- **作用**：用于辅助排序。
 
 - **容量**：每线程一个，总容量受参数 sort_buffer_size 控制，单行容量受参数 max_length_for_sort_data 控制。
 
@@ -1634,9 +1636,9 @@ show engine innodb status;
 
     - **大于**
 
-      > 将需要的字段取出放入sort_buffer；
+      > 利用磁盘临时文件辅助排序。
       >
-      > 将数据按照要排序的字段做快速排序。
+      > 对多个临时文件做归并排序。
 
   - *单行数据量 VS max_length_for_sort_data*
 
@@ -1758,7 +1760,7 @@ show engine innodb status;
   
   5. sql_thread读取中转日志，解析出日志里的命令，并执行。
 
-- **主备同步流程【M-M】**
+- **主主同步流程【M-M】**
 
    <img src="./imgs/主备同步mm.png" alt="主备同步mm" style="zoom:40%;" />
   
@@ -1861,7 +1863,7 @@ show engine innodb status;
   >    
   > 3. 在 从库 执行change master 命令，MASTER_LOG_FILE和MASTER_LOG_POS设置为步骤2查到的位点。
   >
-  > 4. 通常情况下，我们在切换任务的时候，要先主动跳过这些错误，有两种常用的方法：
+  > 4. 通常情况下，我们在切换任务的时候，要主动跳过一些错误，有两种常用的方法：
   >    1. 主动跳过一个事务
   >    
   >       ```sql
@@ -1936,9 +1938,9 @@ show engine innodb status;
 ## 读写分离
 是一主多从架构的一种应用场景。
 
-- **架构一**：<img src="./imgs/读写分离1.png" alt="读写分离1" style="zoom:40%;" />
+- **架构一**：<img src="./imgs/读写分离1.png" alt="读写分离1" style="zoom:60%;" />
 
-- 架构二：<img src="./imgs/读写分离2.png" alt="读写分离2" style="zoom:40%;" />
+- 架构二：<img src="./imgs/读写分离2.png" alt="读写分离2" style="zoom:60%;" />
 
 ### 过期读
 > 由于主从可能存在延迟，客户端执行完一个更新事务后马上发起查询，如果查询选择的是从库的话，就有可能读到刚刚的事务更新之前的状态，把这种现象称为过期读。
@@ -1955,31 +1957,28 @@ show engine innodb status;
 
 - **配合 semi-sync【半同步复制】**
 
-  > 1. 事务提交的时候，主库把binlog发给从库。
-  > 2. 从库收到binlog之后，给主库回一个ack，表示收到了。
-  > 3. 主库收到ack后，才能给客户端返回"事务完成"的确认。
-  >    缺点：
-  > 4. semi-sync+位点判断的方案只适用于一主一备，一主多从的时候，在某些从库执行查询请求会存在过期读的现象。
-  > 5. 在持续延迟的情况下，可能出现过度等待的问题。
-
+  事务提交的时候，主库把binlog发给从库。主库收到ack后，才能给客户端返回"事务完成"的确认。
+  
+  - **缺点**
+    - semi-sync+位点判断的方案只适用于一主一备，一主多从的时候，在某些从库执行查询请求会存在过期读的现象。
+    - 在持续延迟的情况下，可能出现过度等待的问题。
+  
 - **等主库位点方案**
 
-   <img src="./imgs/主库位点.png" alt="主库位点" style="zoom:40%;" />
-  
+  <img src="./imgs/主库位点.png" alt="主库位点" style="zoom:60%;" />
+
   > 1. 一个事务更新完成后，马上执行show master status得到当前主库执行的FILE和POSITION。
   >2. 选定一个从库执行查询语句。
   > 3. 在从库上执行select master_pos_wait(File,Position,1);
   > 4. 如果返回值是>=0的整数，则在从库查询。
   > 5. 否则，到主库查询语句。
 
-  - *缺点*
-
-    > 如果从库查询都超时，在压力会都到主库上.
+  - *缺点*：如果从库查询都超时，在压力会都到主库上.
 
 - **GTID 方案**
 
-   <img src="./imgs/gtid.png" alt="gtid" style="zoom:33%;" />
-  
+  <img src="./imgs/gtid.png" alt="gtid" style="zoom:33%;" />
+
   > 1. 事务更新完成后，从返回包直接获取这个事务的GTID，记为gtid1。将参数 session_track_gtids 设置为 OWN_GTID，然后通过 API 接口 mysql_session_track_get_first 从返回包解析出 GTID 的值即可。
   >2. 选定一个从库执行查询语句。
   > 3. 在从库上执行select wait_for_executed_gtid_set(gtid1,1)。
@@ -2002,7 +2001,7 @@ show engine innodb status;
 
     > 1. 执行 `show processlist`，找到空闲线程。
     > 2. 查看事务具体状态。执行 `select * from information_schema.innodb_trx`。
-    > 3. 查看字段 `trx_mysql_thread_id`，值为还处在事务中的线程id。
+    > 3. 查看字段 `trx_mysql_thread_id`值为还处在事务中的线程id。
     > 4. `kill connection + id`。
 
   - **方案2**：减少连接过程的消耗。【**跳过权限验证**】
@@ -2021,9 +2020,9 @@ show engine innodb status;
 
   - *索引没有设计好*
 
-    > 1. 在备库上执行 set sql_log_bin=off，然后执行 alter table 语句加上索引；
+    > 1. 在备库 B 上执行 set sql_log_bin=off，也就是不写 binlog，然后执行 alter table 语句加上索引；
     > 2. 执行主备切换；
-    > 3. 在备库上执行 set sql_log_bin=off，然后执行 alter table 语句加上索引。
+    > 3. 这时候主库是 B，备库是 A。在 A 上执行 set sql_log_bin=off，然后执行 alter table 语句加上索引。
 
   2. *语句没写好*：**查询重写**。
 
@@ -2034,8 +2033,6 @@ show engine innodb status;
       
   3. *mysql选错索引*：使用查询重写功能，强制使用索引。
   
-- **导致问题**：连接数超过max_connections参数设定的值，系统拒绝接下来的连接请求，并报错提示「Too many connections」。
-
 - **预防**
 
   > 1. 测试环境，把long_query_time 设置成 0，slow_query_log设置为on，确保每个语句都会被记录入慢查询日志；
@@ -2048,15 +2045,18 @@ show engine innodb status;
 
 - **解决方案**
 
-  - 由全新业务的 bug 导致的：从数据库端直接把白名单去掉。
+  - **由全新业务的 bug 导致的**
 
-    > 使用grant select,create,drop,update,alter on *.* to 'username'@'ip' identified by 'password' with grant option;语法。
-
-  2. 这个新功能使用的是单独的数据库用户：用管理员账号把这个用户删掉，然后断开现有连接。
-  3. 这个新增的功能跟主体功能是部署在一起的：只能通过处理语句来限制。这时，我们可以使用查询重写功能，把压力最大的 SQL 语句直接重写成"select 1"返回。
-
-      > 1. 容易误伤其他业务相似语句。
-      > 2. 很多业务并不是靠这一个语句就能完成逻辑的，所以如果单独把这一个语句以 select 1 的结果返回的话，可能会导致后面的业务逻辑一起失败。
+    从数据库端直接把白名单去掉：使用 `grant select,create,drop,update,alter on *.* to 'username'@'ip' identified by 'password' with grant option;`语法。
+    
+  - **这个新功能使用的是单独的数据库用户**：用管理员账号把这个用户删掉，然后断开现有连接。
+  
+  - 这个新增的功能跟主体功能是部署在一起的：只能通过处理语句来限制。这时，我们可以使用查询重写功能，把压力最大的 SQL 语句直接重写成"select 1"返回。
+  
+    - 容易误伤其他业务相似语句。
+    - 很多业务并不是靠这一个语句就能完成逻辑的，所以如果单独把这一个语句以 select 1 的结果返回的话，可能会导致后面的业务逻辑一起失败。
+    
+  
 
 ## 线程
 > mysql的线程上限由参数 innodb_thread_concurrency 控制。
@@ -2068,8 +2068,8 @@ show engine innodb status;
 
 - **执行流程** 
 
-    > 1. 把线程的运行状态改成 THD::KILL_QUERY(将变量 killed 赋值为 THD::KILL_QUERY)；
-    > 2. 给执行线程发一个信号
+    > 1. 把连接的运行状态改成 THD::KILL_QUERY(将变量 killed 赋值为 THD::KILL_QUERY)；
+    > 2. 给连接的执行线程发一个信号
 
 - **kill不掉的情况**
 
@@ -2082,8 +2082,8 @@ show engine innodb status;
         - 大查询回滚：查询过程中生成了比较大的临时文件，删除临时文件可能需要等待 IO 资源，导致耗时较长。
         - DDL 命令执行到最后阶段：需要删除中间过程的临时文件，也可能受 IO 资源影响耗时较久
 
-## kill [connection] 线程id
-> 断开线程的连接
+## kill connection
+客户端发起，断开连接
 
 - **误解**
 
@@ -2107,35 +2107,37 @@ show engine innodb status;
 
   - –quick可以让服务器加速
 
-    > 实际情况
-    > 1. 可以关掉客户端自动补全。
-    > 2. 接收服务端返回结果使用不缓存的方式。会让服务端变慢。
-    > 3. 是让客户端变快。
+    > 实际情况：这个参数影响的是客户端，可以达到以下三点效果
+    >
+    > 1. 第一点，跳过客户端表名自动补全功能。
+    >
+    > 2. 第二点，mysql_store_result 需要申请本地内存来缓存查询结果，如果查询结果太大，会耗费较多的本地内存，可能会影响客户端本地机器的性能；
+    >
+    > 3. 第三点，不会把执行命令记录到本地的命令历史文件。
 
 # 数据恢复
 
 ## 误删行
 - **预防**
 
-  > - 把 sql_safe_updates 参数设置为 on。如果忘记在 delete，update 语句中写 where 条件，或者 where 条件里面没有包含索引字段，这条语句的执行就会报错。
-  >
-  > - 代码上线前，必须经过 SQL 审计。
+  - 把 `sql_safe_updates` 参数设置为 `on`。如果忘记在 `delete`，`update` 语句中写 where 条件，或者 where 条件里面没有包含索引字段，这条语句的执行就会报错。
+  
+  - 代码上线前，必须经过 SQL 审计。
 
 - **恢复**
 
-  > 1. 恢复出一个备份，或者找一个从库作为临时库，
-  >
-  > 2. 在这个临时库上执行这些操作，然后再将确认过的临时库的数据，恢复回主库。
-  >
-  >    - 单个事务恢复
-  >
-  >      > 1. insert 语句，对应的 binlog event 类型是 Write_rows event，把它改成 Delete_rows event
-  >      > 2. delete 语句，将 Delete_rows event 改为 Write_rows event
-  >      > 3. 3.Update_rows语句，binlog 里面记录了数据行修改前和修改后的值，对调这两行的位置即可
-  >
-  >    - 多个事务恢复
-  >
-  >      > 将事务的顺序调过来再执行。
+  1. 恢复出一个备份，或者找一个从库作为临时库，
+  
+  2. 在这个临时库上执行这些操作，然后再将确认过的临时库的数据，恢复回主库。
+  
+     - 单个事务恢复
+  
+       1. insert 语句，对应的 binlog event 类型是 Write_rows event，把它改成 Delete_rows event
+       2. delete 语句，将 Delete_rows event 改为 Write_rows event
+       3. 3.Update_rows语句，binlog 里面记录了数据行修改前和修改后的值，对调这两行的位置即可
+  
+     - 多个事务恢复：将事务的顺序调过来再执行。
+  
 
 ## 误删库/表
 ```sql
@@ -2146,12 +2148,12 @@ truncate table table_name
 
 - **预防**
 
-  > 1. 账号分离。这样做的目的是，避免写错命令
-  >    - 我们只给业务开发同学 DML 权限，而不给 truncate/drop 权限。而如果业务开发人员有 DDL 需求的话，也可以通过开发管理系统得到支持
-  >    - 即使是 DBA 团队成员，日常也都规定只使用只读账号，必要的时候才使用有更新权限的账号
-  > 2. 制定操作规范
-  >    - 在删除数据表之前，必须先对表做改名操作。然后，观察一段时间，确保对业务无影响以后再删除这张表
-  >    - 改表名的时候，要求给表名加固定的后缀（比如加 _to_be_deleted)，然后删除表的动作必须通过管理系统执行。并且，管理系删除表的时候，只能删除固定后缀的表
+  1. 账号分离。这样做的目的是，避免写错命令
+     - 我们只给业务开发同学 DML 权限，而不给 truncate/drop 权限。而如果业务开发人员有 DDL 需求的话，也可以通过开发管理系统得到支持。
+     - 即使是 DBA 团队成员，日常也都规定只使用只读账号，必要的时候才使用有更新权限的账号。
+  2. 制定操作规范
+     - 在删除数据表之前，必须先对表做改名操作。然后，观察一段时间，确保对业务无影响以后再删除这张表。
+     - 改表名的时候，要求给表名加固定的后缀（比如加 _to_be_deleted)，然后删除表的动作必须通过管理系统执行。并且，管理系统删除表的时候，只能删除固定后缀的表。
 
 - **恢复**
 
@@ -2164,10 +2166,10 @@ truncate table table_name
   - *加速一*
 
     > 1. 在用备份恢复出临时实例之后，将这个临时实例设置成线上备库的从库，
-    > 2. 在 start slave 之前，先通过执行change replication filter replicate_do_table = (tbl_name) 命令，就可以让临时库只同步误操作的表；
+    > 2. 在 `start slave` 之前，先通过执行 `change replication filter replicate_do_table = (tbl_name)` 命令，就可以让临时库只同步误操作的表；
     > 3. 这样做也可以用上并行复制技术，来加速整个数据恢复过程
 
-  - *加速二*：延迟复制备库，通过 CHANGE MASTER TO MASTER_DELAY = N 命令，可以指定这个备库持续保持跟主库有 N 秒的延迟。
+  - *加速二*：延迟复制备库，通过 `CHANGE MASTER TO MASTER_DELAY = N` 命令，可以指定这个备库持续保持跟主库有 N 秒的延迟。
 
 
 ## rm删除 
@@ -2186,18 +2188,18 @@ truncate table table_name
 - **并发**
 
   - 并发连接
-      > 在`show processlist`的结果里，看到的几千个连接，指的就是并发连接。
+      > 在 `show processlist` 的结果里，看到的几千个连接，指的就是并发连接。
 
   - 并发查询
-      > - 「当前正在执行」的语句。由`innodb_thread_concurrency`控制。
+      > - 「当前正在执行」的语句。由 `innodb_thread_concurrency` 控制。
       > - 在线程进入锁等待以后，并发线程的计数会减一。
 
 
 - **检测实例健康状态**
 
-|    判断方法     | 方法类型 | 执行方式                    | 无法监测到的情况                                             |
-| :-------------: | :------: | :-------------------------- | :----------------------------------------------------------- |
-|    select 1     | 外部检测 | 定期执行`select 1`          | 并发线程过多，`select 1`不受`innodb_thread_concurrency`控制。 |
-|    查表判断     | 外部检测 | mysql库里放数据，定期查数据 | 写故障，binlog磁盘打满。                                     |
-|    更新判断     | 外部检测 | mysql库里放数据，定期改数据 | 1. 判定慢<br>2. 查的时候需要`IO`资源少，因此很有可能在超时时间内返回 |
-| 内部统计(>=5.6) | 内部检测 | 通过参数打开统计功能        | 可能会有性能损耗                                             |
+|    判断方法     | 方法类型 | 执行方式                    | 监测情况       | 无法监测到的情况                                             |
+| :-------------: | :------: | :-------------------------- | -------------- | :----------------------------------------------------------- |
+|    select 1     | 外部检测 | 定期执行`select 1`          | 库进程是否存在 | 并发线程过多，`select 1`不受`innodb_thread_concurrency`控制。 |
+|    查表判断     | 外部检测 | mysql库里放数据，定期查数据 | 判定非I/O操作  | 写故障，binlog磁盘打满。                                     |
+|    更新判断     | 外部检测 | mysql库里放数据，定期改数据 | 判定I/O        | 1. 判定慢<br>2. 检测语句需要`IO`资源少，因此很有可能在超时时间内返回。 |
+| 内部统计(>=5.6) | 内部检测 | 通过参数打开统计功能        |                | 可能会有性能损耗                                             |
